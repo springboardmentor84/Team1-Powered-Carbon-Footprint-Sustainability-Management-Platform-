@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ecotrack.dto.CarbonSummaryDTO;
 import com.ecotrack.entity.CarbonEntry;
 import com.ecotrack.entity.User;
-import com.ecotrack.repository.UserRepository;
+import com.ecotrack.security.AuthUserResolver;
 import com.ecotrack.service.CarbonEntryService;
 
 @RestController
@@ -26,53 +26,38 @@ public class CarbonEntryController {
     private CarbonEntryService carbonEntryService;
 
     @Autowired
-    private UserRepository userRepository;
+    private AuthUserResolver authUserResolver;
 
-    // CREATE carbon entry
     @PostMapping
     public CarbonEntry createEntry(
-            @RequestBody CarbonEntry entry,
+            @jakarta.validation.Valid @RequestBody CarbonEntry entry,
             Authentication authentication) {
 
-        String email = authentication.getName();
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
+        User user = authUserResolver.requireUser(authentication);
         return carbonEntryService.saveEntry(entry, user);
     }
 
-    // GET logged-in user's carbon entries
     @GetMapping
-    public List<CarbonEntry> getEntries(
-            Authentication authentication) {
+    public List<CarbonEntry> getEntries(Authentication authentication) {
 
-        String email = authentication.getName();
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
+        User user = authUserResolver.requireUser(authentication);
         return carbonEntryService.getUserEntries(user);
     }
 
-    // DELETE carbon entry
     @DeleteMapping("/{id}")
-    public String deleteEntry(@PathVariable Long id) {
-
-        carbonEntryService.deleteEntry(id);
-
-        return "Carbon entry deleted successfully";
-    }
-    
-    @GetMapping("/summary")
-    public CarbonSummaryDTO getCarbonSummary(
+    public String deleteEntry(
+            @PathVariable Long id,
             Authentication authentication) {
 
-        String email = authentication.getName();
+        User user = authUserResolver.requireUser(authentication);
+        carbonEntryService.deleteEntry(id, user);
+        return "Carbon entry deleted successfully";
+    }
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    @GetMapping("/summary")
+    public CarbonSummaryDTO getCarbonSummary(Authentication authentication) {
 
+        User user = authUserResolver.requireUser(authentication);
         return carbonEntryService.getCarbonSummary(user);
     }
 }

@@ -1,12 +1,13 @@
-
 package com.ecotrack.service;
-import com.ecotrack.entity.User;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.ecotrack.entity.GoalEntity;
 import com.ecotrack.entity.User;
@@ -18,8 +19,12 @@ public class GoalService {
     @Autowired
     private GoalRepository goalRepository;
 
-    // Create goal
+    @Autowired
+    private NotificationService notificationService;
+
     public GoalEntity createGoal(GoalEntity goal, User user) {
+
+        validateGoal(goal);
 
         goal.setUser(user);
 
@@ -35,28 +40,40 @@ public class GoalService {
             goal.setCreatedAt(LocalDateTime.now());
         }
 
-        return goalRepository.save(goal);
+        GoalEntity saved = goalRepository.save(goal);
+
+        notificationService.createNotification(
+                user,
+                "Goal created",
+                "You created a new sustainability goal: " + saved.getGoalName());
+
+        return saved;
     }
 
-    // Get all goals of logged-in user
     public List<GoalEntity> getUserGoals(User user) {
-
         return goalRepository.findByUser(user);
     }
 
-    // Get one goal
-    public GoalEntity getGoal(Long id) {
+    public GoalEntity getGoal(Long id, User user) {
 
-        return goalRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Goal not found"));
+        GoalEntity goal = goalRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Goal not found"));
+
+        assertOwner(goal, user);
+        return goal;
     }
 
-    // Update goal
-    public GoalEntity updateGoal(Long id, GoalEntity updatedGoal) {
+    public GoalEntity updateGoal(Long id, GoalEntity updatedGoal, User user) {
 
-        GoalEntity existingGoal = getGoal(id);
+        if (updatedGoal == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Goal data is required");
+        }
 
-        // Only update fields that are actually provided
+        GoalEntity existingGoal = getGoal(id, user);
+        boolean wasCompleted = "COMPLETED".equalsIgnoreCase(existingGoal.getStatus());
+
         if (updatedGoal.getGoalName() != null) {
             existingGoal.setGoalName(updatedGoal.getGoalName());
         }
@@ -81,16 +98,41 @@ public class GoalService {
             existingGoal.setStatus(updatedGoal.getStatus());
         }
 
-        return goalRepository.save(existingGoal);
-    }
+        GoalEntity saved = goalRepository.save(existingGoal);
 
-    // Delete goal
-    public void deleteGoal(Long id) {
-
-        if (!goalRepository.existsById(id)) {
-            throw new RuntimeException("Goal not found");
+        if (!wasCompleted && "COMPLETED".equalsIgnoreCase(saved.getStatus())) {
+            notificationService.createNotification(
+                    user,
+                    "Goal completed",
+                    "You completed your goal: " + saved.getGoalName());
         }
 
-        goalRepository.deleteById(id);
+        return saved;
+    }
+
+    private void validateGoal(GoalEntity goal) {
+        if (goal == null || goal.getGoalName() == null
+                || goal.getGoalName().isBlank()
+                || goal.getTargetValue() == null
+                || goal.getTargetValue().signum() <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Goal name and a positive target value are required");
+        }
+    }
+
+    public void deleteGoal(Long id, User user) {
+
+        GoalEntity goal = getGoal(id, user);
+        goalRepository.delete(goal);
+    }
+
+    private void assertOwner(GoalEntity goal, User user) {
+        if (goal.getUser() == null
+                || !goal.getUser().getUserId().equals(user.getUserId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You cannot access another user's goal");
+        }
     }
 }

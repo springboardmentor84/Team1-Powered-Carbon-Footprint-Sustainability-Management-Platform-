@@ -21,7 +21,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public RegisterResponse register(@RequestBody RegisterRequest request) {
+    public RegisterResponse register(@jakarta.validation.Valid @RequestBody RegisterRequest request) {
 
         return userService.register(request);
 
@@ -29,7 +29,7 @@ public class AuthController {
     
     
     @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest request) {
+    public LoginResponse login(@jakarta.validation.Valid @RequestBody LoginRequest request) {
         return userService.login(request);
     }
 }

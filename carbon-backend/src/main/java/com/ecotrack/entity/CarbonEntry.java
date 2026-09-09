@@ -14,16 +14,20 @@ public class CarbonEntry {
     @Column(name = "entry_id")
     private Long entryId;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @jakarta.validation.constraints.NotBlank(message = "Category is required")
     @Column(name = "category", nullable = false)
     private String category;
 
     @Column(name = "activity_type")
     private String activityType;
 
+    @jakarta.validation.constraints.NotNull(message = "Quantity is required")
+    @jakarta.validation.constraints.DecimalMin(value = "0.01", message = "Quantity must be greater than 0")
     @Column(name = "quantity")
     private BigDecimal quantity;
 

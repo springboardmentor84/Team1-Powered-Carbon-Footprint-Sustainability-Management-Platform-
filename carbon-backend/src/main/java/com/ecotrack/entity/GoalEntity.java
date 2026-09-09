@@ -23,22 +23,28 @@ public class GoalEntity {
     @Column(name = "goal_id")
     private Long goalId;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @jakarta.validation.constraints.NotBlank(message = "Goal name is required")
     @Column(name = "goal_name", nullable = false, length = 255)
     private String goalName;
 
+    @jakarta.validation.constraints.NotNull(message = "Target value is required")
+    @jakarta.validation.constraints.DecimalMin(value = "0.01", message = "Target must be positive")
     @Column(name = "target_value", nullable = false, precision = 12, scale = 2)
     private BigDecimal targetValue;
 
     @Column(name = "current_value", precision = 12, scale = 2)
     private BigDecimal currentValue;
 
+    @jakarta.validation.constraints.NotNull(message = "Start date is required")
     @Column(name = "start_date")
     private LocalDate startDate;
 
+    @jakarta.validation.constraints.NotNull(message = "End date is required")
     @Column(name = "end_date")
     private LocalDate endDate;
 

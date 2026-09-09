@@ -3,6 +3,7 @@ package com.ecotrack.jwt;
 import java.security.Key;
 import java.util.Date;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.Claims;
@@ -13,16 +14,26 @@ import io.jsonwebtoken.security.Keys;
 @Component
 public class JwtUtil {
 
-    private final String SECRET =
-            "ThisIsMyVeryLongSecretKeyForJwtAuthentication123456789";
+    private final Key key;
 
-    private final Key key = Keys.hmacShaKeyFor(SECRET.getBytes());
+    public JwtUtil(
+            @Value("${ecotrack.jwt.secret}") String secret) {
+        this.key = Keys.hmacShaKeyFor(secret.getBytes());
+    }
 
-    // Generate JWT
     public String generateToken(String email) {
+        return generateToken(email, "USER");
+    }
+
+    public String generateToken(String email, String role) {
+
+        String normalizedRole = (role == null || role.isBlank())
+                ? "USER"
+                : role.toUpperCase();
 
         return Jwts.builder()
                 .setSubject(email)
+                .claim("role", normalizedRole)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60))
                 .signWith(key, SignatureAlgorithm.HS256)

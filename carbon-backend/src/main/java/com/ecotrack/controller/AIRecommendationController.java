@@ -1,4 +1,4 @@
-package com.ecotrack.ai;
+package com.ecotrack.controller;
 
 import java.util.List;
 
@@ -8,10 +8,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ecotrack.ai.AIRecommendationService;
 import com.ecotrack.dto.CarbonSummaryDTO;
 import com.ecotrack.entity.GoalEntity;
 import com.ecotrack.entity.User;
-import com.ecotrack.repository.UserRepository;
+import com.ecotrack.security.AuthUserResolver;
 import com.ecotrack.service.CarbonEntryService;
 import com.ecotrack.service.GoalService;
 
@@ -26,7 +27,7 @@ public class AIRecommendationController {
     private GoalService goalService;
 
     @Autowired
-    private UserRepository userRepository;
+    private AuthUserResolver authUserResolver;
 
     @Autowired
     private AIRecommendationService aiRecommendationService;
@@ -35,11 +36,7 @@ public class AIRecommendationController {
     public String getRecommendations(
             Authentication authentication) {
 
-        String email = authentication.getName();
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+        User user = authUserResolver.requireUser(authentication);
 
         CarbonSummaryDTO summary =
                 carbonEntryService.getCarbonSummary(user);

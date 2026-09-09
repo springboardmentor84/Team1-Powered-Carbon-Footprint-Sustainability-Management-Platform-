@@ -1,5 +1,7 @@
 package com.ecotrack.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import jakarta.persistence.Id;
@@ -24,6 +26,7 @@ public class User {
     @Column(name = "email", nullable = false, length = 100, unique = true)
     private String email;
 
+    @JsonIgnore
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 

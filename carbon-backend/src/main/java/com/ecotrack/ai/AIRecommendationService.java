@@ -6,19 +6,26 @@ import org.springframework.stereotype.Service;
 
 import com.ecotrack.dto.CarbonSummaryDTO;
 import com.ecotrack.entity.GoalEntity;
-import com.openai.client.OpenAIClient;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
-import com.openai.errors.RateLimitException;
-import com.openai.models.responses.Response;
-import com.openai.models.responses.ResponseCreateParams;
+import com.google.genai.Client;
+import com.google.genai.types.GenerateContentResponse;
 
 @Service
 public class AIRecommendationService {
 
-    private final OpenAIClient client;
+    private Client client;
 
     public AIRecommendationService() {
-        this.client = OpenAIOkHttpClient.fromEnv();
+        try {
+            this.client = new Client();
+        } catch (Exception e) {
+            System.out.println(
+                "Gemini client could not be initialized " +
+                "(no API key configured). " +
+                "Fallback recommendations will be used. " +
+                "Error: " + e.getMessage()
+            );
+            this.client = null;
+        }
     }
 
     public String generateRecommendation(
@@ -45,7 +52,8 @@ public class AIRecommendationService {
 
         } else {
 
-            goalContext.append("No active sustainability goals available.");
+            goalContext.append(
+                    "No active sustainability goals available.");
         }
 
         String prompt = """
@@ -66,16 +74,20 @@ public class AIRecommendationService {
                 SUSTAINABILITY GOALS:
                 %s
 
-                Generate 3 personalized recommendations.
+                Generate 3 personalized and practical recommendations based on the user's carbon footprint and sustainability goals.
 
-                For each recommendation provide:
-                1. Action
-                2. Reason
-                3. Expected environmental benefit
+                Write the recommendations as normal plain text.
+
+                Do not use Markdown.
+                Do not use asterisks.
+                Do not use headings such as "Action:", "Reason:", or "Expected environmental benefit:".
+                Do not use bullet symbols.
+
+                Explain each recommendation naturally in 2-3 sentences.
 
                 Also identify the user's highest-impact emission category.
 
-                Keep the response concise and practical.
+                Keep the response concise, clear, and practical.
                 """.formatted(
                 summary.getTotalEmissions(),
                 summary.getTransportationEmissions(),
@@ -90,41 +102,37 @@ public class AIRecommendationService {
 
         try {
 
-            ResponseCreateParams params =
-                    ResponseCreateParams.builder()
-                            .model("gpt-5.6-luna")
-                            .input(prompt)
-                            .build();
+            if (client == null) {
+                return fallbackRecommendation(summary);
+            }
 
-            Response response = client.responses().create(params);
+            GenerateContentResponse response =
+                    client.models.generateContent(
+                            "gemini-2.5-flash",
+                            prompt,
+                            null
+                    );
 
-            return response.output().stream()
-                    .flatMap(item -> item.message().stream())
-                    .flatMap(message -> message.content().stream())
-                    .flatMap(content -> content.outputText().stream())
-                    .map(outputText -> outputText.text())
-                    .findFirst()
-                    .orElse(fallbackRecommendation(summary));
+            String result = response.text();
 
-        } catch (RateLimitException e) {
+            if (result == null || result.isBlank()) {
+                return fallbackRecommendation(summary);
+            }
 
-            System.out.println(
-                    "OpenAI quota unavailable. Using fallback recommendation."
-            );
-
-            return fallbackRecommendation(summary);
+            return result;
 
         } catch (Exception e) {
 
             System.out.println(
-                    "OpenAI request failed: " + e.getMessage()
+                    "Gemini request failed: " + e.getMessage()
             );
 
             return fallbackRecommendation(summary);
         }
     }
 
-    private String fallbackRecommendation(CarbonSummaryDTO summary) {
+    private String fallbackRecommendation(
+            CarbonSummaryDTO summary) {
 
         double highestEmission =
                 summary.getTransportationEmissions();
@@ -132,44 +140,47 @@ public class AIRecommendationService {
         String highestCategory = "Transportation";
 
         if (summary.getElectricityEmissions() > highestEmission) {
-            highestEmission = summary.getElectricityEmissions();
+            highestEmission =
+                    summary.getElectricityEmissions();
             highestCategory = "Electricity";
         }
 
         if (summary.getFoodEmissions() > highestEmission) {
-            highestEmission = summary.getFoodEmissions();
+            highestEmission =
+                    summary.getFoodEmissions();
             highestCategory = "Food";
         }
 
         if (summary.getWaterEmissions() > highestEmission) {
-            highestEmission = summary.getWaterEmissions();
+            highestEmission =
+                    summary.getWaterEmissions();
             highestCategory = "Water";
         }
 
         if (summary.getWasteEmissions() > highestEmission) {
-            highestEmission = summary.getWasteEmissions();
+            highestEmission =
+                    summary.getWasteEmissions();
             highestCategory = "Waste";
         }
 
         if (summary.getShoppingEmissions() > highestEmission) {
-            highestEmission = summary.getShoppingEmissions();
+            highestEmission =
+                    summary.getShoppingEmissions();
             highestCategory = "Shopping";
         }
 
         if (summary.getTravelEmissions() > highestEmission) {
-            highestEmission = summary.getTravelEmissions();
+            highestEmission =
+                    summary.getTravelEmissions();
             highestCategory = "Travel";
         }
 
         return """
                 AI service is currently unavailable.
 
-                Highest emission category:
-                %s (%.2f kg CO2e)
+                Your highest emission category is %s with %.2f kg CO2e.
 
-                Recommendation:
-                Reduce activities in this category and monitor your
-                carbon footprint regularly.
+                Try reducing activities in this category and monitor your carbon footprint regularly.
                 """.formatted(
                 highestCategory,
                 highestEmission

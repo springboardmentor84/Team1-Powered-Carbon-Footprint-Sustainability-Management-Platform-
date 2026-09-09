@@ -2,7 +2,6 @@ package com.ecotrack.controller;
 
 
 import org.springframework.beans.factory.annotation.Autowired;
-import com.ecotrack.repository.UserRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.security.core.Authentication;
@@ -11,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ecotrack.dto.ProfileResponse;
 import com.ecotrack.entity.User;
+import com.ecotrack.security.AuthUserResolver;
 import com.ecotrack.service.UserService;
 
 
@@ -24,7 +24,7 @@ public class UserController {
     private UserService us;
     
     @Autowired
-    private UserRepository userRepository;
+    private AuthUserResolver authUserResolver;
 
     @GetMapping("/hii")
     public String se() {
@@ -39,9 +39,7 @@ public class UserController {
     @GetMapping("/profile")
     public ProfileResponse profile(Authentication authentication) {
 
-        String email = authentication.getName();
-
-        User user = userRepository.findByEmail(email).get();
+        User user = authUserResolver.requireUser(authentication);
 
         return new ProfileResponse(
                 user.getUserId(),

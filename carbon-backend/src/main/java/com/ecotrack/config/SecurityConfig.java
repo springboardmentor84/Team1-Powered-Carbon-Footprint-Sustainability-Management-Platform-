@@ -33,18 +33,30 @@ public class SecurityConfig {
             HttpSecurity http) throws Exception {
 
         http
+            // ==========================================
+            // CSRF
+            // ==========================================
             .csrf(csrf -> csrf.disable())
 
+            // ==========================================
+            // CORS
+            // ==========================================
             .cors(cors -> cors.configurationSource(
                     corsConfigurationSource()
             ))
 
+            // ==========================================
+            // STATELESS JWT
+            // ==========================================
             .sessionManagement(session ->
                     session.sessionCreationPolicy(
                             SessionCreationPolicy.STATELESS
                     )
             )
 
+            // ==========================================
+            // AUTHORIZATION
+            // ==========================================
             .authorizeHttpRequests(auth -> auth
 
                     // CORS preflight
@@ -53,23 +65,96 @@ public class SecurityConfig {
                             "/**"
                     ).permitAll()
 
-                    // Authentication
-                    .requestMatchers("/register").permitAll()
-                    .requestMatchers("/login").permitAll()
+                    // ==================================
+                    // PUBLIC AUTH APIs
+                    // ==================================
+                    .requestMatchers("/register")
+                    .permitAll()
 
-                    // Admin
-                    .requestMatchers("/admin").hasAuthority("ADMIN")
+                    .requestMatchers("/login")
+                    .permitAll()
 
-                    // Carbon APIs
-                    .requestMatchers("/carbon/**").authenticated()
+                    // ==================================
+                    // ADMIN APIs
+                    // Only users with ADMIN authority
+                    // ==================================
+                    .requestMatchers("/admin/**")
+                    .hasAuthority("ADMIN")
 
-                    // Goal APIs
-                    .requestMatchers("/goals/**").permitAll()
+                    .requestMatchers("/admin")
+                    .hasAuthority("ADMIN")
 
-                    // Everything else
-                    .anyRequest().authenticated()
+                    // ==================================
+                    // CARBON APIs
+                    // Any authenticated user
+                    // ==================================
+                    .requestMatchers("/carbon/**")
+                    .authenticated()
+
+                    // ==================================
+                    // GOAL APIs
+                    // Any authenticated user
+                    // ==================================
+                    .requestMatchers("/goals/**")
+                    .authenticated()
+
+                    // ==================================
+                    // GAMIFICATION APIs
+                    // Any authenticated user
+                    // ==================================
+                    .requestMatchers("/gamification/**")
+                    .authenticated()
+
+                    // ==================================
+                    // CHALLENGE APIs
+                    // Admin manages challenges.
+                    // Users may list/join/leave/complete.
+                    // ==================================
+                    .requestMatchers(HttpMethod.POST, "/challenges/*/join")
+                    .authenticated()
+
+                    .requestMatchers(HttpMethod.POST, "/challenges/*/leave")
+                    .authenticated()
+
+                    .requestMatchers(HttpMethod.POST, "/challenges/*/complete")
+                    .authenticated()
+
+                    .requestMatchers(HttpMethod.GET, "/challenges", "/challenges/**")
+                    .authenticated()
+
+                    .requestMatchers(HttpMethod.POST, "/challenges")
+                    .hasAuthority("ADMIN")
+
+                    .requestMatchers(HttpMethod.PUT, "/challenges/**")
+                    .hasAuthority("ADMIN")
+
+                    .requestMatchers(HttpMethod.DELETE, "/challenges/**")
+                    .hasAuthority("ADMIN")
+
+                    // ==================================
+                    // NOTIFICATION APIs
+                    // Any authenticated user
+                    // ==================================
+                    .requestMatchers("/notifications/**")
+                    .authenticated()
+
+                    // ==================================
+                    // LEADERBOARD API
+                    // Any authenticated user
+                    // ==================================
+                    .requestMatchers("/leaderboard")
+                    .authenticated()
+
+                    // ==================================
+                    // EVERYTHING ELSE
+                    // ==================================
+                    .anyRequest()
+                    .authenticated()
             )
 
+            // ==========================================
+            // JWT FILTER
+            // ==========================================
             .addFilterBefore(
                     jwtFilter,
                     UsernamePasswordAuthenticationFilter.class
@@ -78,6 +163,11 @@ public class SecurityConfig {
         return http.build();
     }
 
+
+    // ==============================================
+    // CORS CONFIGURATION
+    // ==============================================
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
@@ -85,7 +175,9 @@ public class SecurityConfig {
                 new CorsConfiguration();
 
         configuration.setAllowedOrigins(
-                List.of("http://localhost:4200")
+                List.of(
+                        "http://localhost:4200"
+                )
         );
 
         configuration.setAllowedMethods(
@@ -119,8 +211,14 @@ public class SecurityConfig {
         return source;
     }
 
+
+    // ==============================================
+    // PASSWORD ENCODER
+    // ==============================================
+
     @Bean
     public PasswordEncoder passwordEncoder() {
+
         return new BCryptPasswordEncoder();
     }
 }

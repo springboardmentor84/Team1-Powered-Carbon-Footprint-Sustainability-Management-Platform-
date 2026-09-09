@@ -5,7 +5,9 @@ import java.math.RoundingMode;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.ecotrack.dto.CarbonSummaryDTO;
 import com.ecotrack.entity.CarbonEntry;
@@ -21,30 +23,37 @@ public class CarbonEntryService {
     // Carbon emission factors
     private BigDecimal getEmissionFactor(String category) {
 
-        switch (category) {
+        if (category == null || category.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Carbon category is required");
+        }
 
-            case "Transportation":
+        switch (category.trim().toLowerCase()) {
+
+            case "transportation":
+            case "transport":
                 return new BigDecimal("0.21");
 
-            case "Electricity":
+            case "electricity":
                 return new BigDecimal("0.82");
 
-            case "Fuel":
+            case "fuel":
                 return new BigDecimal("2.31");
 
-            case "Food":
+            case "food":
                 return new BigDecimal("1.80");
 
-            case "Waste":
+            case "waste":
                 return new BigDecimal("0.57");
 
-            case "Water":
+            case "water":
                 return new BigDecimal("0.001");
 
-            case "Shopping":
+            case "shopping":
                 return new BigDecimal("0.42");
 
-            case "Travel":
+            case "travel":
                 return new BigDecimal("0.19");
 
             default:
@@ -56,6 +65,13 @@ public class CarbonEntryService {
 
     // Save carbon entry and calculate emissions
     public CarbonEntry saveEntry(CarbonEntry entry, User user) {
+
+        if (entry == null || entry.getQuantity() == null
+                || entry.getQuantity().signum() <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Quantity must be greater than zero");
+        }
 
         entry.setUser(user);
 
@@ -76,10 +92,21 @@ public class CarbonEntryService {
         return carbonEntryRepository.findByUser(user);
     }
 
-    // Delete carbon entry
-    public void deleteEntry(Long entryId) {
+    public void deleteEntry(Long entryId, User user) {
 
-        carbonEntryRepository.deleteById(entryId);
+        CarbonEntry entry = carbonEntryRepository.findById(entryId)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND,
+                        "Carbon entry not found"));
+
+        if (entry.getUser() == null
+                || !entry.getUser().getUserId().equals(user.getUserId())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN,
+                    "You cannot delete another user's carbon entry");
+        }
+
+        carbonEntryRepository.delete(entry);
     }
 
     // Get carbon summary
@@ -115,6 +142,7 @@ public class CarbonEntryService {
             switch (category.toLowerCase()) {
 
                 case "transportation":
+                case "transport":
                     transportation = transportation.add(emissions);
                     break;
 

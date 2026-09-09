@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ecotrack.entity.GoalEntity;
 import com.ecotrack.entity.User;
-import com.ecotrack.repository.UserRepository;
+import com.ecotrack.security.AuthUserResolver;
 import com.ecotrack.service.GoalService;
 
 @RestController
@@ -26,61 +26,50 @@ public class GoalController {
     private GoalService goalService;
 
     @Autowired
-    private UserRepository userRepository;
+    private AuthUserResolver authUserResolver;
 
-    // CREATE GOAL
     @PostMapping
     public GoalEntity createGoal(
-            @RequestBody GoalEntity goal,
+            @jakarta.validation.Valid @RequestBody GoalEntity goal,
             Authentication authentication) {
 
-        String email = authentication.getName();
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
+        User user = authUserResolver.requireUser(authentication);
         return goalService.createGoal(goal, user);
     }
 
-    // GET ALL USER GOALS
     @GetMapping
-    public List<GoalEntity> getGoals(
-            Authentication authentication) {
+    public List<GoalEntity> getGoals(Authentication authentication) {
 
-        String email = authentication.getName();
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
+        User user = authUserResolver.requireUser(authentication);
         return goalService.getUserGoals(user);
     }
 
-    // GET ONE GOAL
     @GetMapping("/{id}")
-    public GoalEntity getGoal(@PathVariable Long id) {
+    public GoalEntity getGoal(
+            @PathVariable Long id,
+            Authentication authentication) {
 
-        return goalService.getGoal(id);
+        User user = authUserResolver.requireUser(authentication);
+        return goalService.getGoal(id, user);
     }
 
-    // UPDATE GOAL
-    
     @PutMapping("/{id}")
     public GoalEntity updateGoal(
             @PathVariable Long id,
-            @RequestBody GoalEntity goal,
+            @jakarta.validation.Valid @RequestBody GoalEntity goal,
             Authentication authentication) {
 
-        System.out.println("PUT GOAL USER = " + authentication.getName());
-
-        return goalService.updateGoal(id, goal);
+        User user = authUserResolver.requireUser(authentication);
+        return goalService.updateGoal(id, goal, user);
     }
 
-    // DELETE GOAL
     @DeleteMapping("/{id}")
-    public String deleteGoal(@PathVariable Long id) {
+    public String deleteGoal(
+            @PathVariable Long id,
+            Authentication authentication) {
 
-        goalService.deleteGoal(id);
-
+        User user = authUserResolver.requireUser(authentication);
+        goalService.deleteGoal(id, user);
         return "Goal deleted successfully";
     }
 }

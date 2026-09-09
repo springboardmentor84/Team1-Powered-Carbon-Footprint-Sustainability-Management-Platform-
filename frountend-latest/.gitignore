@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.angular/
+.pnpm-store/
+
+ng-serve.log
+ng-serve.err.log
+
+.env
+.env.local
+.DS_Store
+Thumbs.db
